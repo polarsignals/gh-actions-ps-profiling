@@ -1,0 +1,19 @@
+name: GitHub Actions Demo of Continuous Profiling
+run-name: ${{ github.actor }} is testing out GitHub Actions Continuous Profiling 🚀
+on: [push]
+jobs:
+  Explore-GitHub-Actions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
+      - name: Check out the code
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+      - uses: ./ # Uses an action in the root directory. TODO: This can be replaced once action is published.
+        with:
+          ps_token: ${{ secrets.PSToken }}
+      - name: Set up Go
+        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
+      - name: Run my little go program that does nothing.
+        run: cd example-process && go run main.go
+      - run: echo "🍏 This job's status is ${{ job.status }}." && sleep 300
