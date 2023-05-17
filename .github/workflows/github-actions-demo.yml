@@ -12,6 +12,7 @@ jobs:
       - uses: ./ # Uses an action in the root directory. TODO: This can be replaced once action is published.
         with:
           ps_token: ${{ secrets.PSToken }}
+          labels: 'branch=main'
       - name: Set up Go
         uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
       - name: Run my little go program that does nothing.

@@ -21,6 +21,9 @@ inputs:
     description: 'The agent profiling duration to use, cycle to send profiling data.'
     required: false
     default: '3s'
+  labels:
+    description: 'Add labels, for example branch name, branch=main'
+    required: false
 outputs:
   ps_url:
     description: 'URL of Polar Signals dashboard to view the profiles. - coming soon.'
@@ -32,4 +35,4 @@ runs:
       run: curl -sL https://github.com/parca-dev/parca-agent/releases/download/v${{ inputs.parca_agent_version }}/parca-agent_${{ inputs.parca_agent_version }}_`uname -s`_`uname -m`.tar.gz | tar xvfz -
     - name: Run parca agent in background
       shell: bash
-      run: sudo ./parca-agent --profiling-duration=${{ inputs.profiling_duration }} --profiling-cpu-sampling-frequency=${{ inputs.profiling_frequency }} --node=github --remote-store-address=${{ inputs.ps_store_address }} --remote-store-bearer-token=${{ inputs.ps_token }} &
+      run: sudo ./parca-agent --metadata-external-labels=${{ inputs.labels }} --profiling-duration=${{ inputs.profiling_duration }} --profiling-cpu-sampling-frequency=${{ inputs.profiling_frequency }} --node=github --remote-store-address=${{ inputs.ps_store_address }} --remote-store-bearer-token=${{ inputs.ps_token }} &
