@@ -2,19 +2,23 @@ name: GitHub Actions Demo of Continuous Profiling
 run-name: ${{ github.actor }} is testing out GitHub Actions Continuous Profiling 🚀
 on: [push]
 jobs:
-  Explore-GitHub-Actions:
+  Profile-Your-CI:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
       - name: Check out the code
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
-      - uses: ./ # Uses an action in the root directory. TODO: This can be replaced once action is published.
+      - name: Extract branch name
+        shell: bash
+        run: echo "branch=$(echo ${GITHUB_REF#refs/heads/})" >>$GITHUB_OUTPUT
+        id: extract_branch
+      - uses: ./ # Uses an action in the root directory.
         with:
           polarsignals_cloud_token: ${{ secrets.PSToken }}
-          labels: 'branch=main'
+          labels: 'branch=${{ steps.extract_branch.outputs.branch }};gh_run_id=${{ github.run_id }}'
       - name: Set up Go
         uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
-      - name: Run my little go program that does nothing.
+      - name: Run my little go program that does busy work.
         run: cd example-process && go run main.go
       - run: echo "🍏 This job's status is ${{ job.status }}." && sleep 300
