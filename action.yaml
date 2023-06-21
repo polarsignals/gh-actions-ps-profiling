@@ -12,7 +12,7 @@ inputs:
   parca_agent_version:
     description: 'Parca agent version.'
     required: false
-    default: '0.19.0'
+    default: '0.20.0'
   profiling_frequency:
     description: 'The frequency at which profiling data is collected. Parca Agent defaults to 19, but to gather more data in CI we recommend a higher frequency.'
     required: false
