@@ -24,6 +24,9 @@ inputs:
   labels:
     description: 'Add labels, for example branch name, branch=main'
     required: false
+  extra_args:
+    description: 'Add any further arguments to the execution of the agent.'
+    required: false
 runs:
   using: 'composite'
   steps:
@@ -32,4 +35,4 @@ runs:
       run: curl --connect-timeout 5 --max-time 60 --retry 5 --retry-delay 0 --retry-max-time 600 -sL https://github.com/parca-dev/parca-agent/releases/download/v${{ inputs.parca_agent_version }}/parca-agent_${{ inputs.parca_agent_version }}_`uname -s`_`uname -m`.tar.gz | tar xvfz -
     - name: Run parca agent in background
       shell: bash
-      run: sudo ./parca-agent --metadata-external-labels='${{ inputs.labels }}' --profiling-duration=${{ inputs.profiling_duration }} --profiling-cpu-sampling-frequency=${{ inputs.profiling_frequency }} --node=github --remote-store-address=${{ inputs.store_address }} --remote-store-bearer-token=${{ inputs.polarsignals_cloud_token }} > ${{ runner.temp }}/parca-agent.log 2>&1 &
+      run: sudo ./parca-agent --metadata-external-labels='${{ inputs.labels }}' --profiling-duration=${{ inputs.profiling_duration }} --profiling-cpu-sampling-frequency=${{ inputs.profiling_frequency }} --node=github --remote-store-address=${{ inputs.store_address }} --remote-store-bearer-token=${{ inputs.polarsignals_cloud_token }} ${{ inputs.extra_args }} > ${{ runner.temp }}/parca-agent.log 2>&1 &
