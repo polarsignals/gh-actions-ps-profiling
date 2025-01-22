@@ -32,7 +32,9 @@ runs:
   steps:
     - name: Install Parca Agent
       shell: bash
-      run: curl --connect-timeout 5 --max-time 60 --retry 5 --retry-delay 0 --retry-max-time 600 -sL https://github.com/parca-dev/parca-agent/releases/download/v${{ inputs.parca_agent_version }}/parca-agent_${{ inputs.parca_agent_version }}_`uname -s`_`uname -m`.tar.gz | tar xvfz -
+      run: |
+        curl --connect-timeout 5 --max-time 60 --retry 5 --retry-delay 0 --retry-max-time 600 -sL https://github.com/parca-dev/parca-agent/releases/download/v${{ inputs.parca_agent_version }}/parca-agent_${{ inputs.parca_agent_version }}_`uname -s`_`uname -m` > parca-agent
+        chmod +x ./parca-agent
     - name: Run parca agent in background
       shell: bash
       run: sudo ./parca-agent --metadata-external-labels='${{ inputs.labels }}' --profiling-duration=${{ inputs.profiling_duration }} --profiling-cpu-sampling-frequency=${{ inputs.profiling_frequency }} --node=github --remote-store-address=${{ inputs.store_address }} --remote-store-bearer-token=${{ inputs.polarsignals_cloud_token }} ${{ inputs.extra_args }} > ${{ runner.temp }}/parca-agent.log 2>&1 &
