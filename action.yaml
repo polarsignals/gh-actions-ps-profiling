@@ -29,6 +29,9 @@ inputs:
     required: false
 runs:
   using: 'composite'
+  post:
+    - name: Show logs
+      run: cat ${{ runner.temp }}/parca-agent.log
   steps:
     - name: Install Parca Agent
       shell: bash
