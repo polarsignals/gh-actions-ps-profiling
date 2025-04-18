@@ -27,4 +27,4 @@ jobs:
         uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
       - name: Run my little go program that does busy work.
         run: cd example-process && go run main.go
-      - run: echo "🍏 This job's status is ${{ job.status }}." && sleep 60
+      - run: echo "🍏 This job's status is ${{ job.status }}." && sleep 10
