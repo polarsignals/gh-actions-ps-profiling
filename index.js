@@ -13,7 +13,7 @@ function parseLabels(labelsString) {
   if (!labelsString) return {};
   
   const result = {};
-  labelsString.split(',').forEach(label => {
+  labelsString.split(';').forEach(label => {
     const [key, value] = label.trim().split('=');
     if (key && value !== undefined) {
       result[key.trim()] = value.trim();
@@ -31,7 +31,7 @@ async function run() {
     // Get inputs
     const polarsignalsCloudToken = core.getInput('polarsignals_cloud_token', { required: true });
     const storeAddress = core.getInput('store_address') || 'grpc.polarsignals.com:443';
-    const parcaAgentVersion = core.getInput('parca_agent_version') || '0.35.3';
+    const parcaAgentVersion = core.getInput('parca_agent_version') || '0.38.0';
     const profilingFrequency = core.getInput('profiling_frequency') || '99';
     const profilingDuration = core.getInput('profiling_duration') || '3s';
     const labelsString = core.getInput('labels') || '';
