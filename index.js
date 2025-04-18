@@ -83,7 +83,7 @@ async function run() {
     const tempLogFile = path.join(process.env.RUNNER_TEMP || '/tmp', 'parca-agent.log');
     
     const args = [
-      `--metadata-external-labels='${labelsString}'`,
+      `--metadata-external-labels=${labelsString}`,
       `--profiling-duration=${profilingDuration}`,
       `--profiling-cpu-sampling-frequency=${profilingFrequency}`,
       '--node=github',
