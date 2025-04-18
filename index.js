@@ -140,7 +140,7 @@ async function post() {
     
     // Append project UUID if provided
     if (projectUuid) {
-      queryUrl += `p/${projectUuid}/`;
+      queryUrl += `projects/${projectUuid}?`;
     }
     
     // Build label selector string
