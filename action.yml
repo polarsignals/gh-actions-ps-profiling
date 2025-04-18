@@ -1,4 +1,3 @@
-# action.yaml
 name: 'Polar Signals Continuous Profiling'
 description: 'Installs Parca to continuously profile your CI/CD pipeline.'
 inputs:
@@ -27,14 +26,21 @@ inputs:
   extra_args:
     description: 'Add any further arguments to the execution of the agent.'
     required: false
+  project_uuid:
+    description: 'Polar Signals Cloud project UUID for query URL generation.'
+    required: false
+  cloud_hostname:
+    description: 'Polar Signals Cloud hostname for query URL generation.'
+    required: false
+    default: 'cloud.polarsignals.com'
+  github_token:
+    description: 'GitHub token to use for creating deployments.'
+    required: false
+    default: '${{ github.token }}'
+outputs:
+  profiling_url:
+    description: 'The URL to the profiling data in Polar Signals Cloud.'
 runs:
-  using: 'composite'
-  steps:
-    - name: Install Parca Agent
-      shell: bash
-      run: |
-        curl --connect-timeout 5 --max-time 60 --retry 5 --retry-delay 0 --retry-max-time 600 -sL https://github.com/parca-dev/parca-agent/releases/download/v${{ inputs.parca_agent_version }}/parca-agent_${{ inputs.parca_agent_version }}_`uname -s`_`uname -m` > parca-agent
-        chmod +x ./parca-agent
-    - name: Run parca agent in background
-      shell: bash
-      run: sudo ./parca-agent --metadata-external-labels='${{ inputs.labels }}' --profiling-duration=${{ inputs.profiling_duration }} --profiling-cpu-sampling-frequency=${{ inputs.profiling_frequency }} --node=github --remote-store-address=${{ inputs.store_address }} --remote-store-bearer-token=${{ inputs.polarsignals_cloud_token }} ${{ inputs.extra_args }} > ${{ runner.temp }}/parca-agent.log 2>&1 &
+  using: 'node16'
+  main: 'index.js'
+  post: 'index.js'

@@ -11,7 +11,7 @@ func main() {
 }
 
 func printTenTimes() {
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 5; i++ {
 		fmt.Println("Looping...")
 		doNothingButLoop()
 		time.Sleep(5 * time.Second)
