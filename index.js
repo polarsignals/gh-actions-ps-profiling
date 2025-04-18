@@ -5,16 +5,53 @@ const os = require('os');
 const path = require('path');
 const fs = require('fs');
 
+// Store timestamps file path
+const timestampFile = path.join(process.env.RUNNER_TEMP || '/tmp', 'parca-agent-timestamps.json');
+
+// Parse labels string into an object
+function parseLabels(labelsString) {
+  if (!labelsString) return {};
+  
+  const result = {};
+  labelsString.split(',').forEach(label => {
+    const [key, value] = label.trim().split('=');
+    if (key && value !== undefined) {
+      result[key.trim()] = value.trim();
+    }
+  });
+  
+  return result;
+}
+
 async function run() {
   try {
+    // Save start timestamp
+    const startTimestamp = Date.now();
+    
     // Get inputs
     const polarsignalsCloudToken = core.getInput('polarsignals_cloud_token', { required: true });
     const storeAddress = core.getInput('store_address') || 'grpc.polarsignals.com:443';
     const parcaAgentVersion = core.getInput('parca_agent_version') || '0.35.3';
     const profilingFrequency = core.getInput('profiling_frequency') || '99';
     const profilingDuration = core.getInput('profiling_duration') || '3s';
-    const labels = core.getInput('labels') || '';
+    const labelsString = core.getInput('labels') || '';
     const extraArgs = core.getInput('extra_args') || '';
+    const projectUuid = core.getInput('project_uuid') || '';
+    const cloudHostname = core.getInput('cloud_hostname') || 'cloud.polarsignals.com';
+    
+    // Parse labels
+    const labels = parseLabels(labelsString);
+    
+    // Save start timestamp and configuration to file
+    fs.writeFileSync(timestampFile, JSON.stringify({ 
+      startTimestamp,
+      projectUuid,
+      cloudHostname,
+      labels,
+      labelsString
+    }));
+    
+    core.info(`Saved start timestamp: ${startTimestamp}`);
 
     // Determine platform specifics
     const platform = os.platform();
@@ -46,7 +83,7 @@ async function run() {
     const tempLogFile = path.join(process.env.RUNNER_TEMP || '/tmp', 'parca-agent.log');
     
     const args = [
-      `--metadata-external-labels='${labels}'`,
+      `--metadata-external-labels='${labelsString}'`,
       `--profiling-duration=${profilingDuration}`,
       `--profiling-cpu-sampling-frequency=${profilingFrequency}`,
       '--node=github',
@@ -84,4 +121,141 @@ async function run() {
   }
 }
 
-run();
+async function post() {
+  try {
+    // Get ending timestamp
+    const endTimestamp = Date.now();
+    
+    // Read start timestamp from file
+    if (!fs.existsSync(timestampFile)) {
+      core.warning('Start timestamp file not found. Cannot create Polar Signals Cloud query.');
+      return;
+    }
+    
+    const data = JSON.parse(fs.readFileSync(timestampFile, 'utf8'));
+    const { startTimestamp, projectUuid, cloudHostname, labels, labelsString } = data;
+    
+    // Build the URL with the proper format
+    let queryUrl = `https://${cloudHostname}/`;
+    
+    // Append project UUID if provided
+    if (projectUuid) {
+      queryUrl += `p/${projectUuid}/`;
+    }
+    
+    // Build label selector string
+    let labelSelector = '';
+    if (labelsString && Object.keys(labels).length > 0) {
+      const labelSelectors = [];
+      
+      for (const [key, value] of Object.entries(labels)) {
+        labelSelectors.push(`${key}="${value}"`);
+      }
+      
+      if (labelSelectors.length > 0) {
+        labelSelector = '{' + labelSelectors.join(',') + '}';
+      }
+    }
+    
+    // Define parameters for the URL
+    const baseMetric = 'parca_agent:samples:count:cpu:nanoseconds:delta';
+    const expression = labelSelector ? `${baseMetric}${labelSelector}` : baseMetric;
+    const encodedExpression = encodeURIComponent(expression);
+    
+    // Calculate a reasonable step count
+    const durationSeconds = Math.floor((endTimestamp - startTimestamp) / 1000);
+    const stepCount = Math.min(Math.max(Math.floor(durationSeconds / 10), 50), 500); // Between 50 and 500 steps
+    
+    // Add the query parameters with the complex format
+    queryUrl += `query_browser_mode=simple`;
+    queryUrl += `&step_count=${stepCount}`;
+    queryUrl += `&expression_a=${encodedExpression}`;
+    queryUrl += `&from_a=${startTimestamp}`;
+    queryUrl += `&to_a=${endTimestamp}`;
+    queryUrl += `&time_selection_a=custom`;
+    queryUrl += `&sum_by_a=comm`;
+    queryUrl += `&merge_from_a=${startTimestamp}`;
+    queryUrl += `&merge_to_a=${endTimestamp}`;
+    queryUrl += `&selection_a=${encodedExpression}`;
+    
+    core.info('Polar Signals Cloud Query Information:');
+    core.info(`- Start time: ${new Date(startTimestamp).toISOString()} (${startTimestamp}ms)`);
+    core.info(`- End time: ${new Date(endTimestamp).toISOString()} (${endTimestamp}ms)`);
+    core.info(`- Duration: ${Math.round((endTimestamp - startTimestamp) / 1000)} seconds`);
+    core.info(`- Query URL: ${queryUrl}`);
+    
+    // Set output for the action
+    core.setOutput('profiling_url', queryUrl);
+
+    // Create a GitHub deployment if running in GitHub Actions
+    if (process.env.GITHUB_ACTIONS) {
+      try {
+        const github_token = core.getInput('github_token');
+        const octokit = require('@octokit/rest');
+        const { Octokit } = octokit;
+        const client = new Octokit({
+          auth: github_token
+        });
+
+        // Get GitHub context
+        const repository = process.env.GITHUB_REPOSITORY;
+        const [owner, repo] = (repository || '').split('/');
+        const ref = process.env.GITHUB_REF || process.env.GITHUB_SHA;
+        
+        if (owner && repo && ref) {
+          // Create a deployment
+          core.info(`Creating deployment for ${owner}/${repo} at ${ref}`);
+          
+          const deployment = await client.repos.createDeployment({
+            owner,
+            repo,
+            ref,
+            environment: 'polar-signals-cloud',
+            required_contexts: [],
+            auto_merge: false,
+            description: 'Polar Signals Profiling Results',
+            transient_environment: true,
+            production_environment: false
+          });
+          
+          // Create a deployment status
+          if (deployment.data.id) {
+            const deploymentId = deployment.data.id;
+            await client.repos.createDeploymentStatus({
+              owner,
+              repo,
+              deployment_id: deploymentId,
+              state: 'success',
+              description: 'Profiling data is available',
+              environment_url: queryUrl,
+              log_url: queryUrl,
+              auto_inactive: true
+            });
+            
+            core.info(`Created deployment with ID: ${deploymentId}`);
+          }
+        } else {
+          core.warning(`Missing GitHub context information: owner=${owner}, repo=${repo}, ref=${ref}`);
+        }
+      } catch (deployError) {
+        core.warning(`Failed to create GitHub deployment: ${deployError.message}`);
+      }
+    }
+    
+    // Clean up timestamp file
+    fs.unlinkSync(timestampFile);
+    
+  } catch (error) {
+    core.warning(`Post action failed with error: ${error.message}`);
+  }
+}
+
+// Determine whether to run the main action or post action
+const isPost = !!process.env.STATE_isPost;
+if (isPost) {
+  post();
+} else {
+  run();
+  // Save state to indicate post action should run
+  core.saveState('isPost', 'true');
+}

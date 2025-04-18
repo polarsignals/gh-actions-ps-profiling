@@ -33,6 +33,26 @@ module.exports = {
     extra_args: {
       description: 'Add any further arguments to the execution of the agent.',
       required: false
+    },
+    project_uuid: {
+      description: 'Polar Signals Cloud project UUID for query URL generation.',
+      required: false
+    },
+    cloud_hostname: {
+      description: 'Polar Signals Cloud hostname for query URL generation.',
+      required: false,
+      default: 'cloud.polarsignals.com'
+    },
+    github_token: {
+      description: 'GitHub token to use for creating deployments.',
+      required: false,
+      default: '${{ github.token }}'
     }
-  }
+  },
+  outputs: {
+    profiling_url: {
+      description: 'The URL to the profiling data in Polar Signals Cloud.'
+    }
+  },
+  post: true
 };
