@@ -12,3 +12,45 @@ If you are using Polar Signals cloud, the only thing required to configure is th
 
 Profiling data from one CI run looks [like this](https://pprof.me/475d1cc/).
 
+## Deployment Links
+
+This action can automatically create GitHub deployments with links to your profiling data, making it easy to access the results directly from your GitHub repository. For this feature to work, the following parameters must be configured:
+
+- `project_uuid`: Your Polar Signals Cloud project UUID
+
+If any of the required parameters are missing, the deployment creation will be skipped without failing the workflow, and log messages will indicate the reason.
+
+### Required Permissions
+
+For the deployment creation to work, your workflow needs the following permissions:
+
+```yaml
+permissions:
+  deployments: write
+  contents: read
+```
+
+### Example Configuration
+
+```yaml
+name: Profiling Workflow
+on: [push]
+
+permissions:
+  deployments: write
+  contents: read
+
+jobs:
+  profile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Run Continuous Profiling
+        uses: polarsignals/gh-actions-ps-profiling@main
+        with:
+          polarsignals_cloud_token: ${{ secrets.POLARSIGNALS_CLOUD_TOKEN }}
+          project_uuid: 'your-project-uuid-here'
+          labels: 'branch=${{ github.ref_name }};workflow=${{ github.workflow }}'
+```
+

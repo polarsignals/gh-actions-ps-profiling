@@ -187,24 +187,23 @@ async function post() {
     // Set output for the action
     core.setOutput('profiling_url', queryUrl);
 
-    // Create a GitHub deployment if running in GitHub Actions
+    // Create a GitHub deployment if running in GitHub Actions and all required parameters are available
     if (process.env.GITHUB_ACTIONS) {
       try {
         const github_token = core.getInput('github_token');
-        const octokit = require('@octokit/rest');
-        const { Octokit } = octokit;
-        const client = new Octokit({
-          auth: github_token
-        });
-
-        // Get GitHub context
         const repository = process.env.GITHUB_REPOSITORY;
         const [owner, repo] = (repository || '').split('/');
         const ref = process.env.GITHUB_REF || process.env.GITHUB_SHA;
         
-        if (owner && repo && ref) {
-          // Create a deployment
+        // Check if all required parameters are available for deployment
+        if (github_token && owner && repo && ref && projectUuid && queryUrl) {
           core.info(`Creating deployment for ${owner}/${repo} at ${ref}`);
+          
+          const octokit = require('@octokit/rest');
+          const { Octokit } = octokit;
+          const client = new Octokit({
+            auth: github_token
+          });
           
           const deployment = await client.repos.createDeployment({
             owner,
@@ -235,7 +234,12 @@ async function post() {
             core.info(`Created deployment with ID: ${deploymentId}`);
           }
         } else {
-          core.warning(`Missing GitHub context information: owner=${owner}, repo=${repo}, ref=${ref}`);
+          core.info('Skipping GitHub deployment creation due to missing required parameters:');
+          if (!github_token) core.info('- Missing github_token');
+          if (!owner || !repo) core.info(`- Missing repository information: ${repository}`);
+          if (!ref) core.info('- Missing ref information');
+          if (!projectUuid) core.info('- Missing project_uuid');
+          if (!queryUrl) core.info('- Missing queryUrl');
         }
       } catch (deployError) {
         core.warning(`Failed to create GitHub deployment: ${deployError.message}`);
