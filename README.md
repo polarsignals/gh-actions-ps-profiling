@@ -17,6 +17,7 @@ Profiling data from one CI run looks [like this](https://pprof.me/475d1cc/).
 This action can automatically create GitHub deployments with links to your profiling data, making it easy to access the results directly from your GitHub repository. For this feature to work, the following parameters must be configured:
 
 - `project_uuid`: Your Polar Signals Cloud project UUID
+- `github_token`: A GitHub token with the necessary permissions to create deployments to create the link to the profiling data on a Pull Request or commit.
 
 If any of the required parameters are missing, the deployment creation will be skipped without failing the workflow, and log messages will indicate the reason.
 
@@ -27,7 +28,6 @@ For the deployment creation to work, your workflow needs the following permissio
 ```yaml
 permissions:
   deployments: write
-  contents: read
 ```
 
 ### Example Configuration
@@ -38,7 +38,6 @@ on: [push]
 
 permissions:
   deployments: write
-  contents: read
 
 jobs:
   profile:
@@ -50,7 +49,8 @@ jobs:
         uses: polarsignals/gh-actions-ps-profiling@main
         with:
           polarsignals_cloud_token: ${{ secrets.POLARSIGNALS_CLOUD_TOKEN }}
-          project_uuid: 'your-project-uuid-here'
-          labels: branch=${{ github.ref_name }};workflow=${{ github.workflow }};gh_run_id=${{ github.run_id }}
+          project_uuid: 'your-project-uuid-here' # Don't use a secret for this, it's not sensitive, and otherwise the URL will be partially redacted.
+          labels: ref_name=${{ github.ref_name }};workflow=${{ github.workflow }};gh_run_id=${{ github.run_id }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 ```
 

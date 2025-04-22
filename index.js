@@ -172,7 +172,7 @@ async function post() {
     queryUrl += `&expression_a=${encodedExpression}`;
     queryUrl += `&from_a=${startTimestamp}`;
     queryUrl += `&to_a=${endTimestamp}`;
-    queryUrl += `&time_selection_a=custom`;
+    queryUrl += `&time_selection_a=absolute:${startTimestamp}-${endTimestamp}`;
     queryUrl += `&sum_by_a=comm`;
     queryUrl += `&merge_from_a=${startTimestamp}`;
     queryUrl += `&merge_to_a=${endTimestamp}`;
