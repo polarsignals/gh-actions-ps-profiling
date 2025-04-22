@@ -51,6 +51,6 @@ jobs:
         with:
           polarsignals_cloud_token: ${{ secrets.POLARSIGNALS_CLOUD_TOKEN }}
           project_uuid: 'your-project-uuid-here'
-          labels: 'branch=${{ github.ref_name }};workflow=${{ github.workflow }}'
+          labels: branch=${{ github.ref_name }};workflow=${{ github.workflow }};gh_run_id=${{ github.run_id }}
 ```
 
