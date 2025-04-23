@@ -205,33 +205,48 @@ async function post() {
             auth: github_token
           });
           
-          const deployment = await client.repos.createDeployment({
-            owner,
-            repo,
-            ref,
-            environment: 'polar-signals-cloud',
-            required_contexts: [],
-            auto_merge: false,
-            description: 'Polar Signals Profiling Results',
-            transient_environment: true,
-            production_environment: false
-          });
-          
-          // Create a deployment status
-          if (deployment.data.id) {
-            const deploymentId = deployment.data.id;
-            await client.repos.createDeploymentStatus({
+          try {
+            core.info('Creating deployment...');
+            const deployment = await client.repos.createDeployment({
               owner,
               repo,
-              deployment_id: deploymentId,
-              state: 'success',
-              description: 'Profiling data is available',
-              environment_url: queryUrl,
-              log_url: queryUrl,
-              auto_inactive: true
+              ref,
+              environment: 'polar-signals-cloud',
+              required_contexts: [],
+              auto_merge: false,
+              description: 'Polar Signals Profiling Results',
+              transient_environment: true,
+              production_environment: false
             });
             
-            core.info(`Created deployment with ID: ${deploymentId}`);
+            // Create a deployment status
+            if (deployment.data.id) {
+              const deploymentId = deployment.data.id;
+              core.info(`Deployment created with ID: ${deploymentId}. Creating deployment status...`);
+              
+              try {
+                await client.repos.createDeploymentStatus({
+                  owner,
+                  repo,
+                  deployment_id: deploymentId,
+                  state: 'success',
+                  description: 'Profiling data is available',
+                  environment_url: queryUrl,
+                  log_url: queryUrl,
+                  auto_inactive: true
+                });
+                
+                core.info(`Deployment status created successfully for ID: ${deploymentId}`);
+              } catch (statusError) {
+                core.error(`Failed to create deployment status: ${statusError.message}`);
+                core.error(`Status error details: ${JSON.stringify(statusError)}`);
+              }
+            } else {
+              core.warning('Deployment was created but no deployment ID was returned');
+            }
+          } catch (createError) {
+            core.error(`Failed to create deployment: ${createError.message}`);
+            core.error(`Create error details: ${JSON.stringify(createError)}`);
           }
         } else {
           core.info('Skipping GitHub deployment creation due to missing required parameters:');
