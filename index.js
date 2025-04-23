@@ -193,11 +193,11 @@ async function post() {
         const github_token = core.getInput('github_token');
         const repository = process.env.GITHUB_REPOSITORY;
         const [owner, repo] = (repository || '').split('/');
-        const ref = process.env.GITHUB_REF || process.env.GITHUB_SHA;
+        const sha = process.env.GITHUB_SHA;
         
         // Check if all required parameters are available for deployment
-        if (github_token && owner && repo && ref && projectUuid && queryUrl) {
-          core.info(`Creating deployment for ${owner}/${repo} at ${ref}`);
+        if (github_token && owner && repo && sha && projectUuid && queryUrl) {
+          core.info(`Creating deployment for ${owner}/${repo} at ${sha}`);
           
           const octokit = require('@octokit/rest');
           const { Octokit } = octokit;
@@ -210,12 +210,12 @@ async function post() {
             const deployment = await client.repos.createDeployment({
               owner,
               repo,
-              ref,
+              ref: sha,
               environment: 'polar-signals-cloud',
               required_contexts: [],
               auto_merge: false,
               description: 'Polar Signals Profiling Results',
-              transient_environment: true,
+              transient_environment: false,
               production_environment: false
             });
             
