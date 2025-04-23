@@ -193,7 +193,21 @@ async function post() {
         const github_token = core.getInput('github_token');
         const repository = process.env.GITHUB_REPOSITORY;
         const [owner, repo] = (repository || '').split('/');
-        const sha = process.env.GITHUB_SHA;
+        
+        // Extract the correct SHA
+        let sha = process.env.GITHUB_SHA;
+        // For pull requests, get the SHA from the head of the PR
+        if (process.env.GITHUB_EVENT_NAME === 'pull_request' && process.env.GITHUB_EVENT_PATH) {
+          try {
+            const eventData = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+            if (eventData.pull_request && eventData.pull_request.head && eventData.pull_request.head.sha) {
+              sha = eventData.pull_request.head.sha;
+              core.info(`Using PR head SHA: ${sha} instead of merged SHA`);
+            }
+          } catch (eventError) {
+            core.warning(`Failed to parse event data: ${eventError.message}`);
+          }
+        }
         
         // Check if all required parameters are available for deployment
         if (github_token && owner && repo && sha && projectUuid && queryUrl) {
@@ -252,7 +266,7 @@ async function post() {
           core.info('Skipping GitHub deployment creation due to missing required parameters:');
           if (!github_token) core.info('- Missing github_token');
           if (!owner || !repo) core.info(`- Missing repository information: ${repository}`);
-          if (!ref) core.info('- Missing ref information');
+          if (!sha) core.info('- Missing SHA information');
           if (!projectUuid) core.info('- Missing project_uuid');
           if (!queryUrl) core.info('- Missing queryUrl');
         }
