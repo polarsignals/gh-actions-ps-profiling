@@ -23,6 +23,7 @@ inputs:
   labels:
     description: 'Add labels, for example branch name, branch=main'
     required: false
+    default: "ref_name=${{ github.ref_name }};workflow=${{ github.workflow }};gh_run_id=${{ github.run_id }}"
   extra_args:
     description: 'Add any further arguments to the execution of the agent.'
     required: false
@@ -36,6 +37,7 @@ inputs:
   github_token:
     description: 'GitHub token to use for creating deployments for linking to Profiling data from pull requests.'
     required: false
+    default: ${{ github.token }}
 outputs:
   profiling_url:
     description: 'The URL to the profiling data in Polar Signals Cloud.'
