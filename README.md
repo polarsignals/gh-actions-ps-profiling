@@ -38,6 +38,7 @@ on: [push]
 
 permissions:
   deployments: write
+  contents: read
 
 jobs:
   profile:
@@ -51,6 +52,6 @@ jobs:
           polarsignals_cloud_token: ${{ secrets.POLARSIGNALS_CLOUD_TOKEN }}
           project_uuid: 'your-project-uuid-here' # Don't use a secret for this, it's not sensitive, and otherwise the URL will be partially redacted.
           labels: ref_name=${{ github.ref_name }};workflow=${{ github.workflow }};gh_run_id=${{ github.run_id }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: "${{ github.token }}"
 ```
 
