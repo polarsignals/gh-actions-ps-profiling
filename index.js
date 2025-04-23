@@ -247,7 +247,7 @@ async function post() {
                   description: 'Profiling data is available',
                   environment_url: queryUrl,
                   log_url: queryUrl,
-                  auto_inactive: true
+                  auto_inactive: false
                 });
                 
                 core.info(`Deployment status created successfully for ID: ${deploymentId}`);
