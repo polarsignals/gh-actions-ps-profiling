@@ -17,6 +17,34 @@ jobs:
         with:
           polarsignals_cloud_token: ${{ secrets.PSTOKEN }}
           project_uuid: 7a8644bb-3a90-4a02-be35-efcb6bba4a54
+          config: |
+            relabel_configs:
+            - source_labels: [__meta_process_executable_name]
+              target_label: exec
+              action: replace
+            - source_labels: [__meta_process_executable_compiler]
+              target_label: compiler
+              action: replace
+            - source_labels: [__meta_process_pid]
+              target_label: pid
+              action: replace
+            - source_labels: [__meta_process_pid]
+              target_label: pid
+              action: replace
+            - source_labels: [__meta_thread_id]
+              target_label: thread_id
+              action: replace
+            - source_labels: [__meta_thread_comm]
+              target_label: thread_name
+              action: replace
+            - source_labels: [__meta_cpu]
+              target_label: cpu
+              action: replace
+            - source_labels: [__meta_process_cmdline]
+              regex: '(.{0,500}).*'
+              target_label: cmdline
+              replacement: '$1'
+              action: replace
       - name: Set up Go
         uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
       - name: Run my little go program that does busy work.

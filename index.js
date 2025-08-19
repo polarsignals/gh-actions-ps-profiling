@@ -36,6 +36,7 @@ async function run() {
     const profilingDuration = core.getInput('profiling_duration') || '3s';
     const labelsString = core.getInput('labels') || '';
     const extraArgs = core.getInput('extra_args') || '';
+    const config = core.getInput('config') || '';
     const projectUuid = core.getInput('project_uuid') || '';
     const cloudHostname = core.getInput('cloud_hostname') || 'cloud.polarsignals.com';
     
@@ -91,6 +92,14 @@ async function run() {
       `--remote-store-bearer-token=${polarsignalsCloudToken}`
     ];
     
+    // Handle config file if provided
+    if (config) {
+      const configFile = path.join(process.env.RUNNER_TEMP || '/tmp', 'parca-agent-config.yaml');
+      fs.writeFileSync(configFile, config);
+      args.push(`--config-path=${configFile}`);
+      core.info(`Config file written to: ${configFile}`);
+    }
+
     if (extraArgs) {
       args.push(extraArgs);
     }

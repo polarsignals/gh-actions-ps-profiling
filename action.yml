@@ -27,6 +27,9 @@ inputs:
   extra_args:
     description: 'Add any further arguments to the execution of the agent.'
     required: false
+  config:
+    description: 'Parca agent configuration file content. If provided, this will be written to a file and passed via --config-path flag.'
+    required: false
   project_uuid:
     description: 'Polar Signals Cloud project UUID for query URL generation.'
     required: false
