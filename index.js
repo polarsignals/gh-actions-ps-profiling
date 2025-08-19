@@ -83,13 +83,17 @@ async function run() {
     // Run the Parca agent in the background
     const tempLogFile = path.join(process.env.RUNNER_TEMP || '/tmp', 'parca-agent.log');
     
+    // Write bearer token to a temporary file
+    const tokenFile = path.join(process.env.RUNNER_TEMP || '/tmp', 'parca-agent-token');
+    fs.writeFileSync(tokenFile, polarsignalsCloudToken);
+    
     const args = [
       `--metadata-external-labels=${labelsString}`,
       `--profiling-duration=${profilingDuration}`,
       `--profiling-cpu-sampling-frequency=${profilingFrequency}`,
       '--node=github',
       `--remote-store-address=${storeAddress}`,
-      `--remote-store-bearer-token=${polarsignalsCloudToken}`
+      `--remote-store-bearer-token-file=${tokenFile}`
     ];
     
     // Handle config file if provided
@@ -286,6 +290,12 @@ async function post() {
     
     // Clean up timestamp file
     fs.unlinkSync(timestampFile);
+    
+    // Clean up token file if it exists
+    const tokenFile = path.join(process.env.RUNNER_TEMP || '/tmp', 'parca-agent-token');
+    if (fs.existsSync(tokenFile)) {
+      fs.unlinkSync(tokenFile);
+    }
     
   } catch (error) {
     core.warning(`Post action failed with error: ${error.message}`);
