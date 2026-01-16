@@ -11,7 +11,7 @@ inputs:
   parca_agent_version:
     description: 'Parca agent version.'
     required: false
-    default: '0.38.1'
+    default: '0.45.0'
   profiling_frequency:
     description: 'The frequency at which profiling data is collected. Parca Agent defaults to 19, but to gather more data in CI we recommend a higher frequency.'
     required: false
@@ -32,7 +32,7 @@ inputs:
     required: false
   project_uuid:
     description: 'Polar Signals Cloud project UUID for query URL generation.'
-    required: false
+    required: true
   cloud_hostname:
     description: 'Polar Signals Cloud hostname for query URL generation.'
     required: false
