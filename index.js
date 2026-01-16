@@ -37,7 +37,7 @@ async function run() {
     const labelsString = core.getInput('labels') || '';
     const extraArgs = core.getInput('extra_args') || '';
     const config = core.getInput('config') || '';
-    const projectUuid = core.getInput('project_uuid') || '';
+    const projectUuid = core.getInput('project_uuid', { required: true });
     const cloudHostname = core.getInput('cloud_hostname') || 'cloud.polarsignals.com';
     
     // Parse labels
@@ -93,7 +93,8 @@ async function run() {
       `--profiling-cpu-sampling-frequency=${profilingFrequency}`,
       '--node=github',
       `--remote-store-address=${storeAddress}`,
-      `--remote-store-bearer-token-file=${tokenFile}`
+      `--remote-store-bearer-token-file=${tokenFile}`,
+      `--remote-store-grpc-headers=projectID=${projectUuid}`
     ];
     
     // Handle config file if provided
@@ -187,8 +188,8 @@ async function post() {
     queryUrl += `&to_a=${endTimestamp}`;
     queryUrl += `&time_selection_a=absolute:${startTimestamp}-${endTimestamp}`;
     queryUrl += `&sum_by_a=comm`;
-    queryUrl += `&merge_from_a=${startTimestamp}`;
-    queryUrl += `&merge_to_a=${endTimestamp}`;
+    queryUrl += `&merge_from_a=${startTimestamp * 1000000}`;
+    queryUrl += `&merge_to_a=${endTimestamp * 1000000}`;
     queryUrl += `&selection_a=${encodedExpression}`;
     
     core.info('Polar Signals Cloud Query Information:');

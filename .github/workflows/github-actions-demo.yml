@@ -15,7 +15,7 @@ jobs:
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
       - uses: ./ # Uses an action in the root directory.
         with:
-          polarsignals_cloud_token: ${{ secrets.PSTOKEN }}
+          polarsignals_cloud_token: ${{ secrets.POLARSIGNALS_PROFILER_TOKEN }}
           project_uuid: 7a8644bb-3a90-4a02-be35-efcb6bba4a54
           config: |
             relabel_configs:
@@ -50,3 +50,5 @@ jobs:
       - name: Run my little go program that does busy work.
         run: cd example-process && go run main.go
       - run: echo "🍏 This job's status is ${{ job.status }}." && sleep 10
+      - name: Print agent logs
+        run: cat ${{ runner.temp }}/parca-agent.log
