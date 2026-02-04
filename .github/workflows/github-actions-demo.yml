@@ -20,6 +20,7 @@ jobs:
           polarsignals_cloud_token: ${{ secrets.POLARSIGNALS_PROFILER_TOKEN }}
           project_uuid: 7a8644bb-3a90-4a02-be35-efcb6bba4a54
           job_name: profile-${{ matrix.variant }}
+          labels: "ref_name=${{ github.ref_name }};workflow=${{ github.workflow }};gh_run_id=${{ github.run_id }};gh_job=${{ github.job }};gh_job_index=${{ strategy.job-index }};matrix_variant=${{ matrix.variant }}"
           config: |
             relabel_configs:
             - source_labels: [__meta_process_executable_name]

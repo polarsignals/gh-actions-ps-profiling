@@ -49,6 +49,44 @@ jobs:
           project_uuid: 'your-project-uuid-here' # Don't use a secret for this, it's not sensitive, and otherwise the URL will be partially redacted.
 ```
 
+### Matrix Workflows
+
+When using matrix strategies, multiple parallel jobs run for the same commit. Use the `job_name` input to distinguish between them in PR comments:
+
+```yaml
+jobs:
+  profile:
+    strategy:
+      matrix:
+        node: [18, 20]
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Run Continuous Profiling
+        uses: polarsignals/gh-actions-ps-profiling@main
+        with:
+          polarsignals_cloud_token: ${{ secrets.POLARSIGNALS_CLOUD_TOKEN }}
+          project_uuid: 'your-project-uuid-here'
+          job_name: node-${{ matrix.node }}-${{ matrix.os }}
+          labels: "ref_name=${{ github.ref_name }};workflow=${{ github.workflow }};gh_run_id=${{ github.run_id }};gh_job=${{ github.job }};gh_job_index=${{ strategy.job-index }};node=${{ matrix.node }};os=${{ matrix.os }}"
+```
+
+Each matrix job will have its own row in the PR comment, tracked by the combination of commit SHA and job name.
+
+## Labels
+
+By default, the following labels are attached to profiling data:
+
+- `ref_name` - The branch or tag name
+- `workflow` - The workflow name
+- `gh_run_id` - The GitHub Actions run ID
+- `gh_job` - The GitHub Actions job name
+- `gh_job_index` - The job index in matrix workflows (0-based)
+
+You can customize labels using the `labels` input with a semicolon-separated list of `key=value` pairs.
+
 ### Example Profiling Data
 
 Profiling data from one CI run looks [like this](https://pprof.me/475d1cc/).
