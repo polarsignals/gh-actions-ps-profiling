@@ -201,8 +201,10 @@ async function findExistingComment(client, owner, repo, prNumber) {
 /**
  * Create or update PR comment with profiling results for initial "in progress" state
  * Returns the comment ID for later update
+ * Includes retry logic to handle race conditions with concurrent matrix jobs
  */
-async function createInitialPRComment(client, owner, repo, prNumber, currentRun) {
+async function createInitialPRComment(client, owner, repo, prNumber, currentRun, retryCount = 0) {
+  const MAX_RETRIES = 3;
   const existingComment = await findExistingComment(client, owner, repo, prNumber);
 
   let latestEntries = [currentRun];
@@ -233,6 +235,7 @@ async function createInitialPRComment(client, owner, repo, prNumber, currentRun)
   }
 
   const body = generateCommentBody(latestEntries, historyEntries);
+  let commentId;
 
   if (existingComment) {
     core.info(`Updating existing PR comment (ID: ${existingComment.id})`);
@@ -243,7 +246,7 @@ async function createInitialPRComment(client, owner, repo, prNumber, currentRun)
       body
     });
     core.info(`PR comment updated successfully`);
-    return existingComment.id;
+    commentId = existingComment.id;
   } else {
     core.info(`Creating new PR comment on PR #${prNumber}`);
     const response = await client.issues.createComment({
@@ -253,15 +256,38 @@ async function createInitialPRComment(client, owner, repo, prNumber, currentRun)
       body
     });
     core.info(`PR comment created successfully (ID: ${response.data.id})`);
-    return response.data.id;
+    commentId = response.data.id;
   }
+
+  // Verify our entry was saved (handle race conditions)
+  if (retryCount < MAX_RETRIES) {
+    // Small delay to allow GitHub to propagate the update
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    const verifyComment = await findExistingComment(client, owner, repo, prNumber);
+    if (verifyComment) {
+      const verifyEntries = parseCommentHistory(verifyComment.body);
+      const ourEntryExists = verifyEntries.some(
+        e => e.shortSha === currentRun.shortSha && e.jobName === currentRun.jobName
+      );
+
+      if (!ourEntryExists) {
+        core.info(`Race condition detected: our entry was overwritten, retrying (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+        return createInitialPRComment(client, owner, repo, prNumber, currentRun, retryCount + 1);
+      }
+    }
+  }
+
+  return commentId;
 }
 
 /**
  * Update PR comment to "done" status for a specific SHA and job name
  * Finds the entry by SHA and jobName (composite key) and updates only that entry
+ * Includes retry logic to handle race conditions with concurrent matrix jobs
  */
-async function updatePRCommentToDone(client, owner, repo, prNumber, shortSha, finalUrl, jobName = '') {
+async function updatePRCommentToDone(client, owner, repo, prNumber, shortSha, finalUrl, jobName = '', retryCount = 0) {
+  const MAX_RETRIES = 3;
   const existingComment = await findExistingComment(client, owner, repo, prNumber);
 
   if (!existingComment) {
@@ -341,6 +367,26 @@ async function updatePRCommentToDone(client, owner, repo, prNumber, shortSha, fi
     comment_id: existingComment.id,
     body
   });
+
+  // Verify our entry was saved correctly (handle race conditions)
+  if (retryCount < MAX_RETRIES) {
+    // Small delay to allow GitHub to propagate the update
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    const verifyComment = await findExistingComment(client, owner, repo, prNumber);
+    if (verifyComment) {
+      const verifyEntries = parseCommentHistory(verifyComment.body);
+      const ourEntry = verifyEntries.find(
+        e => e.shortSha === shortSha && e.jobName === jobName
+      );
+
+      if (!ourEntry || ourEntry.status !== 'done') {
+        core.info(`Race condition detected: our entry was overwritten or not marked done, retrying (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+        return updatePRCommentToDone(client, owner, repo, prNumber, shortSha, finalUrl, jobName, retryCount + 1);
+      }
+    }
+  }
+
   core.info(`PR comment updated successfully`);
 }
 
