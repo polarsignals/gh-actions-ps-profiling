@@ -28,8 +28,33 @@ inputs:
     description: 'Add any further arguments to the execution of the agent.'
     required: false
   config:
-    description: 'Parca agent configuration file content. If provided, this will be written to a file and passed via --config-path flag.'
+    description: 'Parca agent configuration file content. This will be written to a file and passed via --config-path flag.'
     required: false
+    default: |
+      relabel_configs:
+      - source_labels: [__meta_process_executable_name]
+        target_label: exec
+        action: replace
+      - source_labels: [__meta_process_executable_compiler]
+        target_label: compiler
+        action: replace
+      - source_labels: [__meta_process_pid]
+        target_label: pid
+        action: replace
+      - source_labels: [__meta_thread_id]
+        target_label: thread_id
+        action: replace
+      - source_labels: [__meta_thread_comm]
+        target_label: thread_name
+        action: replace
+      - source_labels: [__meta_cpu]
+        target_label: cpu
+        action: replace
+      - source_labels: [__meta_process_cmdline]
+        regex: '(.{0,500}).*'
+        target_label: cmdline
+        replacement: '$1'
+        action: replace
   project_uuid:
     description: 'Polar Signals Cloud project UUID for query URL generation.'
     required: true
