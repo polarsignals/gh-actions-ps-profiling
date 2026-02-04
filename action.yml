@@ -38,9 +38,13 @@ inputs:
     required: false
     default: 'cloud.polarsignals.com'
   github_token:
-    description: 'GitHub token to use for creating deployments for linking to Profiling data from pull requests.'
+    description: 'GitHub token for creating PR comments with links to profiling data.'
     required: false
     default: ${{ github.token }}
+  job_name:
+    description: 'Job identifier for matrix workflows (e.g., node-18, ubuntu-latest). Used to distinguish parallel jobs in PR comments.'
+    required: false
+    default: ''
 outputs:
   profiling_url:
     description: 'The URL to the profiling data in Polar Signals Cloud.'
