@@ -23,7 +23,7 @@ inputs:
   labels:
     description: 'Add labels, for example branch name, branch=main'
     required: false
-    default: "ref_name=${{ github.ref_name }};workflow=${{ github.workflow }};gh_run_id=${{ github.run_id }};gh_job=${{ github.job }};gh_job_index=${{ strategy.job-index }}"
+    default: "ref_name=${{ github.ref_name }};workflow=${{ github.workflow }};gh_run_id=${{ github.run_id }};gh_run_attempt=${{ github.run_attempt }};gh_job=${{ github.job }};gh_job_index=${{ strategy.job-index }}"
   extra_args:
     description: 'Add any further arguments to the execution of the agent.'
     required: false

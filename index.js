@@ -36,9 +36,9 @@ function parseLabels(labelsString) {
 function parseCommentHistory(body) {
   const entries = [];
 
-  // Match table rows with Job column and markdown links:
-  // | 🟡 In Progress | `sha` | job-name | [Explore Profiling Data](url) |
-  const tableRowRegex = /\| (🟡 In Progress|🟢 Done) \| `([a-f0-9]{7})` \| (.*?) \| \[Explore Profiling Data\]\((.+?)\) \|/g;
+  // Match table rows with Attempt column and markdown links:
+  // | 🟡 In Progress | `sha` | job-name | 1 | [Explore Profiling Data](url) |
+  const tableRowRegex = /\| (🟡 In Progress|🟢 Done) \| `([a-f0-9]{7})` \| (.*?) \| (\d+) \| \[Explore Profiling Data\]\((.+?)\) \|/g;
 
   let match;
   while ((match = tableRowRegex.exec(body)) !== null) {
@@ -46,7 +46,8 @@ function parseCommentHistory(body) {
       status: match[1] === '🟡 In Progress' ? 'in_progress' : 'done',
       shortSha: match[2],
       jobName: match[3]?.trim() || '',
-      profilingUrl: match[4]
+      runAttempt: match[4],
+      profilingUrl: match[5]
     });
   }
 
@@ -64,14 +65,14 @@ function generateCommentBody(latestEntries, historyEntries) {
 
 ### Latest Run
 
-| Status | Commit | Job | Link |
-|--------|--------|-----|------|
+| Status | Commit | Job | Attempt | Link |
+|--------|--------|-----|---------|------|
 `;
 
   for (const entry of latestEntries) {
     const statusText = entry.status === 'in_progress' ? '🟡 In Progress' : '🟢 Done';
     const jobCell = entry.jobName || '';
-    body += `| ${statusText} | \`${entry.shortSha}\` | ${jobCell} | [Explore Profiling Data](${entry.profilingUrl}) |\n`;
+    body += `| ${statusText} | \`${entry.shortSha}\` | ${jobCell} | ${entry.runAttempt || '1'} | [Explore Profiling Data](${entry.profilingUrl}) |\n`;
   }
 
   if (historyEntries.length > 0) {
@@ -79,13 +80,13 @@ function generateCommentBody(latestEntries, historyEntries) {
 <details>
 <summary><strong>Previous Runs (${historyEntries.length})</strong></summary>
 
-| Status | Commit | Job | Link |
-|--------|--------|-----|------|
+| Status | Commit | Job | Attempt | Link |
+|--------|--------|-----|---------|------|
 `;
     for (const entry of historyEntries) {
       const entryStatusText = entry.status === 'in_progress' ? '🟡 In Progress' : '🟢 Done';
       const entryJobCell = entry.jobName || '';
-      body += `| ${entryStatusText} | \`${entry.shortSha}\` | ${entryJobCell} | [Explore Profiling Data](${entry.profilingUrl}) |\n`;
+      body += `| ${entryStatusText} | \`${entry.shortSha}\` | ${entryJobCell} | ${entry.runAttempt || '1'} | [Explore Profiling Data](${entry.profilingUrl}) |\n`;
     }
     body += `
 </details>
@@ -214,18 +215,18 @@ async function createInitialPRComment(client, owner, repo, prNumber, currentRun,
     // Parse all entries from existing comment
     const allEntries = parseCommentHistory(existingComment.body);
 
-    // Separate entries: same SHA goes to latest, different SHA goes to history
+    // Separate entries: same SHA + same run attempt goes to latest, otherwise history
     for (const entry of allEntries) {
-      // Skip if this is the same job (will be replaced by currentRun)
-      if (entry.shortSha === currentRun.shortSha && entry.jobName === currentRun.jobName) {
+      // Skip if this is the same job + same attempt (will be replaced by currentRun)
+      if (entry.shortSha === currentRun.shortSha && entry.jobName === currentRun.jobName && entry.runAttempt === currentRun.runAttempt) {
         continue;
       }
 
-      if (entry.shortSha === currentRun.shortSha) {
-        // Same commit, different job - keep in latest section
+      if (entry.shortSha === currentRun.shortSha && entry.runAttempt === currentRun.runAttempt) {
+        // Same commit, same attempt, different job - keep in latest section
         latestEntries.push(entry);
       } else {
-        // Different commit - move to history
+        // Different commit or older attempt - move to history
         historyEntries.push(entry);
       }
     }
@@ -268,7 +269,7 @@ async function createInitialPRComment(client, owner, repo, prNumber, currentRun,
     if (verifyComment) {
       const verifyEntries = parseCommentHistory(verifyComment.body);
       const ourEntryExists = verifyEntries.some(
-        e => e.shortSha === currentRun.shortSha && e.jobName === currentRun.jobName
+        e => e.shortSha === currentRun.shortSha && e.jobName === currentRun.jobName && e.runAttempt === currentRun.runAttempt
       );
 
       if (!ourEntryExists) {
@@ -286,7 +287,7 @@ async function createInitialPRComment(client, owner, repo, prNumber, currentRun,
  * Finds the entry by SHA and jobName (composite key) and updates only that entry
  * Includes retry logic to handle race conditions with concurrent matrix jobs
  */
-async function updatePRCommentToDone(client, owner, repo, prNumber, shortSha, finalUrl, jobName = '', retryCount = 0) {
+async function updatePRCommentToDone(client, owner, repo, prNumber, shortSha, finalUrl, jobName = '', runAttempt = '1', retryCount = 0) {
   const MAX_RETRIES = 3;
   const existingComment = await findExistingComment(client, owner, repo, prNumber);
 
@@ -297,7 +298,8 @@ async function updatePRCommentToDone(client, owner, repo, prNumber, shortSha, fi
       shortSha,
       profilingUrl: finalUrl,
       status: 'done',
-      jobName
+      jobName,
+      runAttempt
     };
     await createInitialPRComment(client, owner, repo, prNumber, currentRun);
     return;
@@ -313,7 +315,8 @@ async function updatePRCommentToDone(client, owner, repo, prNumber, shortSha, fi
       shortSha,
       profilingUrl: finalUrl,
       status: 'done',
-      jobName
+      jobName,
+      runAttempt
     }], []);
     await client.issues.updateComment({
       owner,
@@ -324,10 +327,10 @@ async function updatePRCommentToDone(client, owner, repo, prNumber, shortSha, fi
     return;
   }
 
-  // Find the entry matching this SHA AND jobName (composite key) and update it
+  // Find the entry matching this SHA, jobName, and runAttempt (composite key) and update it
   let foundEntry = false;
   for (const entry of allEntries) {
-    if (entry.shortSha === shortSha && entry.jobName === jobName) {
+    if (entry.shortSha === shortSha && entry.jobName === jobName && entry.runAttempt === runAttempt) {
       entry.status = 'done';
       entry.profilingUrl = finalUrl;
       foundEntry = true;
@@ -336,22 +339,23 @@ async function updatePRCommentToDone(client, owner, repo, prNumber, shortSha, fi
   }
 
   if (!foundEntry) {
-    // SHA+jobName not found in comment (race condition), add as new completed entry
-    core.info(`SHA ${shortSha} with job "${jobName}" not found in comment, adding as new entry`);
+    // SHA+jobName+runAttempt not found in comment (race condition), add as new completed entry
+    core.info(`SHA ${shortSha} with job "${jobName}" (attempt ${runAttempt}) not found in comment, adding as new entry`);
     allEntries.unshift({
       shortSha,
       profilingUrl: finalUrl,
       status: 'done',
-      jobName
+      jobName,
+      runAttempt
     });
   }
 
-  // Separate entries: same SHA as this job goes to latest, different SHA goes to history
+  // Separate entries: same SHA + same run attempt goes to latest, otherwise history
   const latestEntries = [];
   const historyEntries = [];
 
   for (const entry of allEntries) {
-    if (entry.shortSha === shortSha) {
+    if (entry.shortSha === shortSha && entry.runAttempt === runAttempt) {
       latestEntries.push(entry);
     } else {
       historyEntries.push(entry);
@@ -360,7 +364,7 @@ async function updatePRCommentToDone(client, owner, repo, prNumber, shortSha, fi
 
   const body = generateCommentBody(latestEntries, historyEntries.slice(0, MAX_HISTORY_ENTRIES));
 
-  core.info(`Updating PR comment to mark ${shortSha} (job: "${jobName}") as done`);
+  core.info(`Updating PR comment to mark ${shortSha} (job: "${jobName}", attempt: ${runAttempt}) as done`);
   await client.issues.updateComment({
     owner,
     repo,
@@ -377,12 +381,12 @@ async function updatePRCommentToDone(client, owner, repo, prNumber, shortSha, fi
     if (verifyComment) {
       const verifyEntries = parseCommentHistory(verifyComment.body);
       const ourEntry = verifyEntries.find(
-        e => e.shortSha === shortSha && e.jobName === jobName
+        e => e.shortSha === shortSha && e.jobName === jobName && e.runAttempt === runAttempt
       );
 
       if (!ourEntry || ourEntry.status !== 'done') {
         core.info(`Race condition detected: our entry was overwritten or not marked done, retrying (attempt ${retryCount + 1}/${MAX_RETRIES})`);
-        return updatePRCommentToDone(client, owner, repo, prNumber, shortSha, finalUrl, jobName, retryCount + 1);
+        return updatePRCommentToDone(client, owner, repo, prNumber, shortSha, finalUrl, jobName, runAttempt, retryCount + 1);
       }
     }
   }
@@ -407,6 +411,7 @@ async function run() {
     const projectUuid = core.getInput('project_uuid', { required: true });
     const cloudHostname = core.getInput('cloud_hostname') || 'cloud.polarsignals.com';
     const jobName = core.getInput('job_name') || '';
+    const runAttempt = process.env.GITHUB_RUN_ATTEMPT || '1';
 
     // Parse labels
     const labels = parseLabels(labelsString);
@@ -418,7 +423,8 @@ async function run() {
       cloudHostname,
       labels,
       labelsString,
-      jobName
+      jobName,
+      runAttempt
     }));
     
     core.info(`Saved start timestamp: ${startTimestamp}`);
@@ -550,7 +556,8 @@ async function run() {
             shortSha,
             profilingUrl: inProgressUrl,
             status: 'in_progress',
-            jobName
+            jobName,
+            runAttempt
           };
 
           core.info(`Creating/updating PR comment for PR #${prNumber} with in-progress status`);
@@ -567,7 +574,8 @@ async function run() {
               shortSha,
               prNumber,
               commentId,
-              jobName
+              jobName,
+              runAttempt
             };
             fs.writeFileSync(timestampFile, JSON.stringify(updatedData));
             core.info(`Saved PR comment info (comment ID: ${commentId}, SHA: ${shortSha})`);
@@ -608,7 +616,7 @@ async function post() {
     }
 
     const data = JSON.parse(fs.readFileSync(timestampFile, 'utf8'));
-    const { startTimestamp, projectUuid, cloudHostname, labels, labelsString, shortSha, prNumber, jobName } = data;
+    const { startTimestamp, projectUuid, cloudHostname, labels, labelsString, shortSha, prNumber, jobName, runAttempt } = data;
 
     // Build final URL with complete time range
     const queryUrl = buildQueryUrl(
@@ -683,7 +691,7 @@ async function post() {
         if (currentPrNumber) {
           core.info(`Updating PR comment for PR #${currentPrNumber} to done status`);
           try {
-            await updatePRCommentToDone(client, owner, repo, currentPrNumber, sha, queryUrl, jobName || '');
+            await updatePRCommentToDone(client, owner, repo, currentPrNumber, sha, queryUrl, jobName || '', runAttempt || '1');
           } catch (commentError) {
             if (commentError.status === 403) {
               core.warning('Failed to update PR comment: Missing pull-requests:write permission. ' +
