@@ -215,19 +215,27 @@ async function createInitialPRComment(client, owner, repo, prNumber, currentRun,
     // Parse all entries from existing comment
     const allEntries = parseCommentHistory(existingComment.body);
 
-    // Separate entries: same SHA + same run attempt goes to latest, otherwise history
+    // Build a set of jobs being re-run (same SHA, same job name as currentRun)
+    // so we only move the old attempt of *that specific job* to history
+    const supersededJobs = new Set();
+    supersededJobs.add(currentRun.jobName);
+
+    // Separate entries into latest vs history
     for (const entry of allEntries) {
       // Skip if this is the same job + same attempt (will be replaced by currentRun)
       if (entry.shortSha === currentRun.shortSha && entry.jobName === currentRun.jobName && entry.runAttempt === currentRun.runAttempt) {
         continue;
       }
 
-      if (entry.shortSha === currentRun.shortSha && entry.runAttempt === currentRun.runAttempt) {
-        // Same commit, same attempt, different job - keep in latest section
-        latestEntries.push(entry);
-      } else {
-        // Different commit or older attempt - move to history
+      if (entry.shortSha !== currentRun.shortSha) {
+        // Different commit - always history
         historyEntries.push(entry);
+      } else if (supersededJobs.has(entry.jobName)) {
+        // Same commit, same job but older attempt - move to history
+        historyEntries.push(entry);
+      } else {
+        // Same commit, different job - keep in latest regardless of attempt number
+        latestEntries.push(entry);
       }
     }
 
@@ -350,15 +358,32 @@ async function updatePRCommentToDone(client, owner, repo, prNumber, shortSha, fi
     });
   }
 
-  // Separate entries: same SHA + same run attempt goes to latest, otherwise history
+  // Separate entries into latest vs history
+  // Only move older attempts of the *same job* to history, not all jobs from that attempt
   const latestEntries = [];
   const historyEntries = [];
 
+  // Find which jobs at this SHA have newer attempts so we can supersede them
+  const newestAttemptByJob = {};
   for (const entry of allEntries) {
-    if (entry.shortSha === shortSha && entry.runAttempt === runAttempt) {
-      latestEntries.push(entry);
-    } else {
+    if (entry.shortSha === shortSha) {
+      const cur = parseInt(entry.runAttempt, 10);
+      if (!newestAttemptByJob[entry.jobName] || cur > newestAttemptByJob[entry.jobName]) {
+        newestAttemptByJob[entry.jobName] = cur;
+      }
+    }
+  }
+
+  for (const entry of allEntries) {
+    if (entry.shortSha !== shortSha) {
+      // Different commit - always history
       historyEntries.push(entry);
+    } else if (parseInt(entry.runAttempt, 10) < newestAttemptByJob[entry.jobName]) {
+      // Same commit, same job but older attempt - move to history
+      historyEntries.push(entry);
+    } else {
+      // Same commit, latest attempt for this job - keep in latest
+      latestEntries.push(entry);
     }
   }
 
