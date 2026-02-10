@@ -12,7 +12,7 @@ const timestampFile = path.join(process.env.RUNNER_TEMP || '/tmp', 'parca-agent-
 const COMMENT_MARKER = '<!-- polar-signals-profiling-comment -->';
 
 // Maximum number of history entries to keep
-const MAX_HISTORY_ENTRIES = 10;
+const MAX_HISTORY_ENTRIES = 100;
 
 // Parse labels string into an object
 function parseLabels(labelsString) {
@@ -215,19 +215,33 @@ async function createInitialPRComment(client, owner, repo, prNumber, currentRun,
     // Parse all entries from existing comment
     const allEntries = parseCommentHistory(existingComment.body);
 
-    // Separate entries: same SHA + same run attempt goes to latest, otherwise history
+    // Find the newest attempt per job at this SHA (including the currentRun)
+    const newestAttemptByJob = { [currentRun.jobName]: parseInt(currentRun.runAttempt, 10) };
+    for (const entry of allEntries) {
+      if (entry.shortSha === currentRun.shortSha) {
+        const cur = parseInt(entry.runAttempt, 10);
+        if (!newestAttemptByJob[entry.jobName] || cur > newestAttemptByJob[entry.jobName]) {
+          newestAttemptByJob[entry.jobName] = cur;
+        }
+      }
+    }
+
+    // Separate entries into latest vs history
     for (const entry of allEntries) {
       // Skip if this is the same job + same attempt (will be replaced by currentRun)
       if (entry.shortSha === currentRun.shortSha && entry.jobName === currentRun.jobName && entry.runAttempt === currentRun.runAttempt) {
         continue;
       }
 
-      if (entry.shortSha === currentRun.shortSha && entry.runAttempt === currentRun.runAttempt) {
-        // Same commit, same attempt, different job - keep in latest section
-        latestEntries.push(entry);
-      } else {
-        // Different commit or older attempt - move to history
+      if (entry.shortSha !== currentRun.shortSha) {
+        // Different commit - always history
         historyEntries.push(entry);
+      } else if (parseInt(entry.runAttempt, 10) < newestAttemptByJob[entry.jobName]) {
+        // Same commit, same job but older attempt - move to history
+        historyEntries.push(entry);
+      } else {
+        // Same commit, latest attempt for this job - keep in latest
+        latestEntries.push(entry);
       }
     }
 
@@ -350,15 +364,32 @@ async function updatePRCommentToDone(client, owner, repo, prNumber, shortSha, fi
     });
   }
 
-  // Separate entries: same SHA + same run attempt goes to latest, otherwise history
+  // Separate entries into latest vs history
+  // Only move older attempts of the *same job* to history, not all jobs from that attempt
   const latestEntries = [];
   const historyEntries = [];
 
+  // Find which jobs at this SHA have newer attempts so we can supersede them
+  const newestAttemptByJob = {};
   for (const entry of allEntries) {
-    if (entry.shortSha === shortSha && entry.runAttempt === runAttempt) {
-      latestEntries.push(entry);
-    } else {
+    if (entry.shortSha === shortSha) {
+      const cur = parseInt(entry.runAttempt, 10);
+      if (!newestAttemptByJob[entry.jobName] || cur > newestAttemptByJob[entry.jobName]) {
+        newestAttemptByJob[entry.jobName] = cur;
+      }
+    }
+  }
+
+  for (const entry of allEntries) {
+    if (entry.shortSha !== shortSha) {
+      // Different commit - always history
       historyEntries.push(entry);
+    } else if (parseInt(entry.runAttempt, 10) < newestAttemptByJob[entry.jobName]) {
+      // Same commit, same job but older attempt - move to history
+      historyEntries.push(entry);
+    } else {
+      // Same commit, latest attempt for this job - keep in latest
+      latestEntries.push(entry);
     }
   }
 
