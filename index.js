@@ -12,7 +12,7 @@ const timestampFile = path.join(process.env.RUNNER_TEMP || '/tmp', 'parca-agent-
 const COMMENT_MARKER = '<!-- polar-signals-profiling-comment -->';
 
 // Maximum number of history entries to keep
-const MAX_HISTORY_ENTRIES = 10;
+const MAX_HISTORY_ENTRIES = 100;
 
 // Parse labels string into an object
 function parseLabels(labelsString) {
