@@ -87,6 +87,15 @@ By default, the following labels are attached to profiling data:
 
 You can customize labels using the `labels` input with a semicolon-separated list of `key=value` pairs.
 
+## Extra Arguments
+
+Use `extra_args` to pass additional Parca Agent arguments. Separate multiple arguments with whitespace, and quote values that contain spaces:
+
+```yaml
+with:
+  extra_args: '--log-level=debug --remote-store-insecure'
+```
+
 ### Example Profiling Data
 
 Profiling data from one CI run looks [like this](https://pprof.me/475d1cc/).
