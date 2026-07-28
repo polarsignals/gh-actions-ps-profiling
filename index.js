@@ -29,6 +29,85 @@ function parseLabels(labelsString) {
   return result;
 }
 
+// Parse extra_args into argv entries for child_process.spawn.
+function parseExtraArgs(extraArgsString) {
+  if (!extraArgsString) return [];
+
+  const args = [];
+  let arg = '';
+  let quoteChar = null;
+  let argStarted = false;
+
+  for (let i = 0; i < extraArgsString.length; i++) {
+    const char = extraArgsString[i];
+
+    if (quoteChar) {
+      if (char === '\\') {
+        const nextChar = extraArgsString[i + 1];
+        if (nextChar === quoteChar || nextChar === '\\') {
+          arg += nextChar;
+          i++;
+        } else {
+          arg += char;
+        }
+        argStarted = true;
+        continue;
+      }
+
+      if (char === quoteChar) {
+        quoteChar = null;
+        argStarted = true;
+        continue;
+      }
+
+      arg += char;
+      argStarted = true;
+      continue;
+    }
+
+    if (/\s/.test(char)) {
+      if (argStarted) {
+        args.push(arg);
+        arg = '';
+        argStarted = false;
+      }
+      continue;
+    }
+
+    if (char === '"' || char === "'") {
+      quoteChar = char;
+      argStarted = true;
+      continue;
+    }
+
+    if (char === '\\') {
+      const nextChar = extraArgsString[i + 1];
+      if (nextChar && (/\s/.test(nextChar) || nextChar === '"' || nextChar === "'" || nextChar === '\\')) {
+        arg += nextChar;
+        i++;
+      } else {
+        arg += char;
+      }
+      argStarted = true;
+      continue;
+    }
+
+    arg += char;
+    argStarted = true;
+  }
+
+  if (quoteChar) {
+    const quoteName = quoteChar === '"' ? 'double' : 'single';
+    throw new Error(`Unterminated ${quoteName} quote in extra_args`);
+  }
+
+  if (argStarted) {
+    args.push(arg);
+  }
+
+  return args;
+}
+
 /**
  * Parse existing comment body to extract history entries
  * Returns array of run entries with status
@@ -437,7 +516,7 @@ async function run() {
     const profilingFrequency = core.getInput('profiling_frequency') || '99';
     const profilingDuration = core.getInput('profiling_duration') || '3s';
     const labelsString = core.getInput('labels') || '';
-    const extraArgs = core.getInput('extra_args') || '';
+    const extraArgs = parseExtraArgs(core.getInput('extra_args') || '');
     const config = core.getInput('config') || '';
     const projectUuid = core.getInput('project_uuid', { required: true });
     const cloudHostname = core.getInput('cloud_hostname') || 'cloud.polarsignals.com';
@@ -511,8 +590,8 @@ async function run() {
       core.info(`Config file written to: ${configFile}`);
     }
 
-    if (extraArgs) {
-      args.push(extraArgs);
+    if (extraArgs.length > 0) {
+      args.push(...extraArgs);
     }
     
     core.info('Starting Parca Agent in the background...');
@@ -754,11 +833,17 @@ async function post() {
 }
 
 // Determine whether to run the main action or post action
-const isPost = !!process.env.STATE_isPost;
-if (isPost) {
-  post();
-} else {
-  run();
-  // Save state to indicate post action should run
-  core.saveState('isPost', 'true');
+if (require.main === module) {
+  const isPost = !!process.env.STATE_isPost;
+  if (isPost) {
+    post();
+  } else {
+    run();
+    // Save state to indicate post action should run
+    core.saveState('isPost', 'true');
+  }
 }
+
+module.exports = {
+  parseExtraArgs
+};
