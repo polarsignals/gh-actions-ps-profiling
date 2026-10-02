@@ -433,7 +433,11 @@ async function run() {
     // Get inputs
     const polarsignalsCloudToken = core.getInput('polarsignals_cloud_token', { required: true });
     const storeAddress = core.getInput('store_address') || 'grpc.polarsignals.com:443';
-    const parcaAgentVersion = core.getInput('parca_agent_version') || '0.38.0';
+    const parcaAgentVersion = core.getInput('parca_agent_version') || '0.50.0';
+    const exportFormat = core.getInput('export_format');
+    if (exportFormat && !['arrow-v1', 'arrow-v2', 'otlp'].includes(exportFormat)) {
+      throw new Error('export_format must be one of: arrow-v1, arrow-v2, otlp');
+    }
     const profilingFrequency = core.getInput('profiling_frequency') || '99';
     const profilingDuration = core.getInput('profiling_duration') || '3s';
     const labelsString = core.getInput('labels') || '';
@@ -503,6 +507,10 @@ async function run() {
       `--remote-store-grpc-headers=projectID=${projectUuid}`
     ];
     
+    if (exportFormat) {
+      args.push(`--remote-store-format=${exportFormat}`);
+    }
+
     // Handle config file if provided
     if (config) {
       const configFile = path.join(process.env.RUNNER_TEMP || '/tmp', 'parca-agent-config.yaml');

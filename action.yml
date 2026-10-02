@@ -11,7 +11,10 @@ inputs:
   parca_agent_version:
     description: 'Parca agent version.'
     required: false
-    default: '0.45.0'
+    default: '0.50.0'
+  export_format:
+    description: 'Profile export format: arrow-v1, arrow-v2, or otlp. Requires Parca Agent v0.50.0 or later. If unset, uses the agent default.'
+    required: false
   profiling_frequency:
     description: 'The frequency at which profiling data is collected. Parca Agent defaults to 19, but to gather more data in CI we recommend a higher frequency.'
     required: false
