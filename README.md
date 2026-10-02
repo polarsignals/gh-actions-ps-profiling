@@ -10,6 +10,22 @@ This project is also a demo of how to use this action, view the [.github/workflo
 
 If you are using Polar Signals Cloud, the only thing required to configure is the `polarsignals_cloud_token` which is the API token for Polar Signals Cloud, where it sends the profiling data. You can find the docs on how to obtain a token [here](https://www.polarsignals.com/docs/generating-tokens).
 
+## Export format
+
+The action defaults to Parca Agent `0.50.0`. Set `export_format: otlp` to export profiles using OTLP:
+
+```yaml
+- uses: polarsignals/gh-actions-ps-profiling@main
+  with:
+    polarsignals_cloud_token: ${{ secrets.POLARSIGNALS_CLOUD_TOKEN }}
+    project_uuid: 'your-project-uuid-here'
+    export_format: otlp
+```
+
+The `export_format` input accepts `arrow-v1`, `arrow-v2`, or `otlp` and requires Parca Agent `0.50.0` or later. If omitted, the agent uses its default format (`arrow-v2` in v0.50.0). Leave it unset when selecting an older agent version.
+
+This input passes [`--remote-store-format=otlp`](https://github.com/parca-dev/parca-agent/blob/v0.50.0/flags/flags.go) for OTLP profiles. Profiles use the existing `store_address`, token, and gRPC headers. The destination must support OTLP profiles; symbols still upload through the Parca DebuginfoService protocol.
+
 ## PR Comments
 
 On pull request events, this action automatically creates or updates a single PR comment with a link to your profiling data. The comment shows the latest run prominently and maintains a history of previous runs in a collapsible section.
